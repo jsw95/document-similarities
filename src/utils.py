@@ -3,29 +3,37 @@ import string
 from collections import Counter
 import numpy as np
 import re
+from nltk.stem import WordNetLemmatizer
+lemmatizer = WordNetLemmatizer()
 
 
-def parse_text(words):
-    """Takes in list of strings, returns list of lowercase string w/o punctuation and stopwords"""
+def parse_text(words, lemmatization=True):
+
+    """Takes in list of strings, returns list of lowercase, lemmatized strings w/o punctuation and stopwords"""
     cleaned_words = []
+    regex_slash = re.compile(f'/')
+    words = regex_slash.sub(' ', words)  # catch for this/that words
+
     words = words.split()
     stop_words = set(stopwords.words('english'))
-    regex = re.compile(f'[{re.escape(string.punctuation)}]')
+    regex = re.compile(f'[{re.escape(string.punctuation + "“")}]')
 
-    for index, word in enumerate(words):
+    for word in words:
         if word not in stop_words:
-            word = regex.sub('', word)  # TODO fix not capturing ""s
+            word = regex.sub('', word)
             word = word.lower()
+            if lemmatization:
+                word = lemmatizer.lemmatize(word)
             cleaned_words.append(word)
 
     return cleaned_words
 
 
-def parse_all_text(text):
+def parse_all_text(text, lemmatization=True):
     all_words = []
     parsed_text = []
     for line in text:
-        words = parse_text(line)
+        words = parse_text(line, lemmatization)
         parsed_text.extend(words)
         all_words.extend(words)
 
@@ -61,10 +69,19 @@ def jaccard_similarities(input_query, query):
 
 
 def cosine_similarity(input_query, query):
-    similarity = np.dot(input_query, query) / (np.linalg.norm(input_query) + np.linalg.norm(query))
+    similarity = np.dot(input_query, query) / (np.linalg.norm(input_query) * np.linalg.norm(query))
     return similarity
 
 
 def manhatten_similarity(input_query, query):
     similarity = np.sum(abs(input_query - query))
     return similarity
+
+def tfidf(word, doc_words, bag_df):
+    norm_term_freq = doc_words.count(word) / len(doc_words)
+    if np.count_nonzero(bag_df[word]) == 0:
+        print(9)
+    inv_doc_freq = np.log(len(bag_df) / np.count_nonzero(bag_df[word]))
+
+    tfidf = norm_term_freq * inv_doc_freq
+    return tfidf
