@@ -1,15 +1,13 @@
 import argparse
 from pathlib import Path
-import multiprocessing as mp
-import pickle
-import pandas as pd
 
 import nltk
+import pandas as pd
 from nltk.corpus import stopwords
 
+from src.cleaning import parse_text, parse_all_text, bag_of_words
 from src.glove import get_centroid, get_all_embeddings
-from src.utils import parse_text, parse_all_text, jaccard_similarities, cosine_similarity, manhatten_similarity, \
-    bag_of_words, tfidf
+from src.utils import jaccard_similarities, cosine_similarity, manhatten_similarity, tfidf
 
 if __name__ == "__main__":
     nltk.download('stopwords')
@@ -17,23 +15,20 @@ if __name__ == "__main__":
 
     stop_words = set(stopwords.words('english'))
 
-    with open(f"{Path(__file__).parent}/queries.txt") as f:
-        text = f.readlines()
-
+    # Arguments
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('query', type=str, help='a query to be compared against')
     parser.add_argument('path', default="../data/glove.42B.300d.txt", help='path to glove embeddings')
-
     args = parser.parse_args()
-
     input = args.query
     path = args.path
 
+    with open(f"{Path(__file__).parent}/queries.txt") as f:
+        text = f.readlines()
 
+    # prep for Jaccard, Cosine and Manhatten similarities
     cleaned_input = parse_text(input)
-
     indexes, all_words = parse_all_text(text + [input])
-
     bag_of_words_input = bag_of_words(cleaned_input, indexes)
     binary_bag_of_words_input = [1 if count > 0 else 0 for count in bag_of_words_input]
 
@@ -63,38 +58,35 @@ if __name__ == "__main__":
     print("\n--- Top 3 Jaccard Similarities --- ")
     for i in jaccard_sims[:3]:
         print(f"Query: {i[0]}Score: {round(i[1], 3)}\n")
-
     print("\n--- Top 3 Cosine Similarities --- ")
     for i in cosine_sims[:3]:
         print(f"Query: {i[0]}Score: {round(i[1], 3)}\n")
     print("\n--- Top 3 Cosine Similarities (Binary)--- ")
     for i in cosine_binary_sims[:3]:
         print(f"Query: {i[0]}Score: {round(i[1], 3)}\n")
-
     print("\n--- Top 3 Manhatten Similarities --- ")
     for i in manhatten_sims[:3]:
         print(f"Query: {i[0]}Score: {round(i[1], 3)}\n")
 
-    # creating non lemmatized bag of words df
-    indexes, all_words = parse_all_text(text + [input], lemmatization=False)
-    cleaned_input = parse_text(input, lemmatization=False)  # Lemmatization not used for word embeddings
+    # GLoVe Embeddings
+    indexes, all_words = parse_all_text(text + [input], lemmatization=False)  # Lemmatization not used for embeddings
+    cleaned_input = parse_text(input, lemmatization=False)
     bag_of_words_input = bag_of_words(cleaned_input, indexes)
     all_bag_of_words = [bag_of_words_input]
     for line in text:
         cleaned_words = parse_text(line, lemmatization=False)
         all_bag_of_words.append(bag_of_words(cleaned_words, indexes))
 
-    bag_df = pd.DataFrame(all_bag_of_words, columns=indexes.keys())
+    bag_of_words_df = pd.DataFrame(all_bag_of_words, columns=indexes.keys())
 
-    all_embeddings = get_all_embeddings(
-        words=set(all_words).union(set(cleaned_input)),
-        glove_path=path)
+    # scanning glove txt document for word embeddings
+    all_embeddings = get_all_embeddings(words=set(all_words), glove_path=path)
 
     input_embeddings, weighted_input_embeddings = [], []
     for word in cleaned_input:
         if word in all_embeddings:
             embedding = all_embeddings[word]
-            weighted_embedding = all_embeddings[word] / tfidf(word, cleaned_input, bag_df)
+            weighted_embedding = all_embeddings[word] / tfidf(word, cleaned_input, bag_of_words_df)
             input_embeddings.append(embedding)
             weighted_input_embeddings.append(weighted_embedding)
 
@@ -109,7 +101,7 @@ if __name__ == "__main__":
         for word in cleaned_words:
             if word in all_embeddings:
                 embedding = all_embeddings[word]
-                weighted_embedding = all_embeddings[word] / tfidf(word, cleaned_words, bag_df)
+                weighted_embedding = all_embeddings[word] / tfidf(word, cleaned_words, bag_of_words_df)
                 query_embeddings.append(embedding)
                 weighted_query_embeddings.append(weighted_embedding)
 
@@ -125,7 +117,6 @@ if __name__ == "__main__":
     print("\n--- Top 3 Glove Similarities --- ")
     for i in glove_sims[:3]:
         print(f"Query: {i[0]}Score: {round(i[1], 3)}\n")
-
     print("\n--- Top 3 Glove Similarities Weighted with TFIDF --- ")
     for i in weighted_glove_sims[:3]:
         print(f"Query: {i[0]}Score: {round(i[1], 3)}\n")

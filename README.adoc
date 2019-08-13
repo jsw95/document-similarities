@@ -1,6 +1,40 @@
-One way in which the glove data falls down is that it does not have word emebddings for certain wairds such as brexit., and can therefore not utilise the meaning of these words, where the others can. 
-First methods do not take into account frequency of words in language, therefore words such as will, will skew your resut1ls more than divorce.
+=== Usage
 
-One area where improvements could be made is reducing the amount of time it takes to retreive the word embeddings from the file.
-Assuming we dont want to load the whole 1,900,000 rows into a memeory as a hash table, then mulitprocessing could be used to
-increase speed. This was attempted but I was unable to utilise the multiprocessing without loading the whole dataaset into memory.
+The main function takes two arguments:
+The first is the input query you want to test against, and the second is the path to the glove embeddings .txt file
+`python main.py "input query" "/path/to/glove/embeddings.txt"`
+This will print out the top 3 ranked queries for the following metrics:
+
+* Jaccard similarity
+* Cosine similarity
+* Cosine similarity (with binary input)
+* Manhatten similarity
+* Cosine similarity of word embeddings centroid
+* Cosine similarity of word embeddings centroid (with TFIDF weighting)
+
+=== Results
+
+A full list of results can be found by running the program as above.
+For the input query, every similarity metric had "Can I begin the divorce process within the first year of marriage?" as the top ranked query.
+
+=== Analysis
+
+The Jaccard and Manhatten similarities have a big flaw, whereby they favour shorter sentences as their metrics are based on the number of different words.
+Longer but more relevant sentences may have a worse score for these than a short sentence which contains a few overlapping words.
+
+One way in which the glove data falls down is that it does not have word embeddings for certain words such as Brexit, and can therefore not utilise the meaning of these words, where the others can.
+
+
+Looking at these results it is hard to choose a clear favourite, as they all produce sensible results.
+My existing knowledge tells me that using word embeddings is a superior method than the classical metrics as they give you more insight into the true meaning of each word.
+For example, word embeddings for "divorce" and "marriage" would be similar, which is useful as they are clearly related.
+The first methods would not allow this relationship to be found.
+
+
+There were some strange results with the GLoVe embeddings.
+When not weighted by TFIDF the third ranked query was relevant to tenancy agreements, not divorce as expected.
+When weighting using TFIDF this query is substituted for one regarding marriage validity. This could be due to an error in my process.
+
+One area where improvements could be made is reducing the amount of time it takes to retrieve the word embeddings from the file.
+Assuming we don't want to load the whole 1,900,000 rows into a memory as a hash table, then multiprocessing could be used to increase speed.
+Another would be to load the values into a database with a word as the primary key, for fast lookup speeds with low memory overheads.
